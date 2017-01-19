@@ -67,6 +67,10 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (mHandler != null) {
+            mHandler.removeCallbacks(mRunnable);
+            mHandler = null;
+        }
         mCursor.close();
         super.onDestroy();
     }
