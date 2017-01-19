@@ -13,34 +13,53 @@ import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageView;
 
-import java.util.Timer;
-
-public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+public class MainActivity extends AppCompatActivity {
     // ?
     private static final int PERMISSIONS_REQUEST_CODE = 100;
-    private static Cursor cursor;
+    private Cursor mCursor;
+    private Handler mHandler = null;
+    private Runnable mRunnable = new Runnable() {
+        @Override
+        public void run() {
+            moveAndShow(1);
+            mHandler.postDelayed(mRunnable, period);
+        }
+    };
+    private static final int period = 2000;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        findViewById(R.id.button).setOnClickListener(this);
-        findViewById(R.id.button2).setOnClickListener(this);
+        findViewById(R.id.button).setOnClickListener(new View.OnClickListener() { public void onClick(View v) { moveAndShow(1); } });
+        findViewById(R.id.button2).setOnClickListener(new View.OnClickListener() { public void onClick(View v) { moveAndShow(-1); } });
+        findViewById(R.id.button3).setOnClickListener(new View.OnClickListener() { public void onClick(View v){
+            if (mHandler == null) {
+                mHandler = new Handler();
+                mHandler.postDelayed(mRunnable, period);
+                Log.d("Slideshow", "started");
+                findViewById(R.id.button).setEnabled(false);
+                findViewById(R.id.button2).setEnabled(false);
+            } else {
+                mHandler.removeCallbacks(mRunnable);
+                mHandler = null;
+                Log.d("Slideshow", "stopped");
+                findViewById(R.id.button).setEnabled(true);
+                findViewById(R.id.button2).setEnabled(true);
+            }
+        }});
 
         // Android 6.0以降の場合
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // パーミッションの許可状態を確認する
             if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                 getContentsInfo();
             } else {
                 requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
                         PERMISSIONS_REQUEST_CODE);
             }
-            // Android 5系以下の場合
         } else {
             getContentsInfo();
         }
@@ -48,14 +67,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onDestroy() {
-        cursor.close();
+        mCursor.close();
         super.onDestroy();
     }
 
     private void getContentsInfo() {
-        // 画像の情報を取得する
         ContentResolver resolver = getContentResolver();
-        cursor = resolver.query(
+        mCursor = resolver.query(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI, // データの種類
                 null, // 項目(null = 全項目)
                 null, // フィルタ条件(null = フィルタなし)
@@ -63,31 +81,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 null // ソート (null ソートなし)
         );
 
-        if (cursor.moveToFirst()) {
-            int fieldIndex = cursor.getColumnIndex(MediaStore.Images.Media._ID);
-            Long id = cursor.getLong(fieldIndex);
-            Uri imageUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
-
-            Log.d("ANDROID", "URI : " + imageUri.toString());
-            ImageView iv = (ImageView) findViewById(R.id.imageView);
-            iv.setImageURI(imageUri);
-        }
+        moveAndShow(0);
     }
 
-    public void onClick(View view) {
-        String op = ((Button) view).getText().toString();
-        boolean result = false;
-        if (op.equals("◀")) {
-            result = cursor.moveToPrevious();
-        } else if (op.equals("▶")) {
-            result = cursor.moveToNext();
+    private void moveAndShow(int direction) {
+        boolean result;
+        if (direction < 0) {
+            result = mCursor.isFirst() ? mCursor.moveToLast() : mCursor.moveToPrevious();
+        } else if (direction > 0) {
+            result = mCursor.isLast() ? mCursor.moveToFirst() : mCursor.moveToNext();
+        } else {
+            result = mCursor.moveToFirst();
         }
         if (result) {
-            int fieldIndex = cursor.getColumnIndex(MediaStore.Images.Media._ID);
-            Long id = cursor.getLong(fieldIndex);
+            int fieldIndex = mCursor.getColumnIndex(MediaStore.Images.Media._ID);
+            Long id = mCursor.getLong(fieldIndex);
             Uri imageUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
 
-            Log.d("ANDROID", "URI : " + imageUri.toString());
             ImageView iv = (ImageView) findViewById(R.id.imageView);
             iv.setImageURI(imageUri);
         }
