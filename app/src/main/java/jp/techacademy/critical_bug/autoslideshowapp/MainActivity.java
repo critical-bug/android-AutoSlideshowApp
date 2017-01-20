@@ -13,13 +13,14 @@ import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 
 public class MainActivity extends AppCompatActivity {
     // ?
     private static final int PERMISSIONS_REQUEST_CODE = 100;
     private Cursor mCursor;
-    private Handler mHandler = null;
+    private Handler mHandler;
     private Runnable mRunnable = new Runnable() {
         @Override
         public void run() {
@@ -28,54 +29,47 @@ public class MainActivity extends AppCompatActivity {
         }
     };
     private static final int period = 2000;
+    private Button next;
+    private Button prev;
+    private Button auto;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        next = (Button) findViewById(R.id.button);
+        prev = (Button) findViewById(R.id.button2);
+        auto = (Button) findViewById(R.id.button3);
 
-        findViewById(R.id.button).setOnClickListener(new View.OnClickListener() { public void onClick(View v) { moveAndShow(1); } });
-        findViewById(R.id.button2).setOnClickListener(new View.OnClickListener() { public void onClick(View v) { moveAndShow(-1); } });
-        findViewById(R.id.button3).setOnClickListener(new View.OnClickListener() { public void onClick(View v){
-            if (mHandler == null) {
-                mHandler = new Handler();
-                mHandler.postDelayed(mRunnable, period);
-                Log.d("Slideshow", "started");
-                findViewById(R.id.button).setEnabled(false);
-                findViewById(R.id.button2).setEnabled(false);
-            } else {
-                mHandler.removeCallbacks(mRunnable);
-                mHandler = null;
-                Log.d("Slideshow", "stopped");
-                findViewById(R.id.button).setEnabled(true);
-                findViewById(R.id.button2).setEnabled(true);
+        next.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { moveAndShow(1); } });
+        prev.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { moveAndShow(-1); } });
+        auto.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (mHandler == null) {
+                    mHandler = new Handler();
+                    mHandler.postDelayed(mRunnable, period);
+                    Log.d("Slideshow", "started");
+                    findViewById(R.id.button).setEnabled(false);
+                    findViewById(R.id.button2).setEnabled(false);
+                } else {
+                    mHandler.removeCallbacks(mRunnable);
+                    mHandler = null;
+                    Log.d("Slideshow", "stopped");
+                    findViewById(R.id.button).setEnabled(true);
+                    findViewById(R.id.button2).setEnabled(true);
+                }
             }
-        }});
+        });
 
         // Android 6.0以降の場合
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
-                getContentsInfo();
-            } else {
+            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
                         PERMISSIONS_REQUEST_CODE);
+                return;
             }
-        } else {
-            getContentsInfo();
         }
-    }
 
-    @Override
-    protected void onDestroy() {
-        if (mHandler != null) {
-            mHandler.removeCallbacks(mRunnable);
-            mHandler = null;
-        }
-        mCursor.close();
-        super.onDestroy();
-    }
-
-    private void getContentsInfo() {
         ContentResolver resolver = getContentResolver();
         mCursor = resolver.query(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI, // データの種類
@@ -85,7 +79,25 @@ public class MainActivity extends AppCompatActivity {
                 null // ソート (null ソートなし)
         );
 
-        moveAndShow(0);
+        if (mCursor.getCount() > 0) {
+            moveAndShow(0);
+
+            next.setEnabled(true);
+            prev.setEnabled(true);
+            auto.setEnabled(true);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (mHandler != null) {
+            mHandler.removeCallbacks(mRunnable);
+            mHandler = null;
+        }
+        if (mCursor != null) {
+            mCursor.close();
+        }
+        super.onDestroy();
     }
 
     private void moveAndShow(int direction) {
@@ -104,6 +116,37 @@ public class MainActivity extends AppCompatActivity {
 
             ImageView iv = (ImageView) findViewById(R.id.imageView);
             iv.setImageURI(imageUri);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        switch (requestCode) {
+            case PERMISSIONS_REQUEST_CODE:
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d("ANDROID", "許可された");
+                    ContentResolver resolver = getContentResolver();
+                    mCursor = resolver.query(
+                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, // データの種類
+                            null, // 項目(null = 全項目)
+                            null, // フィルタ条件(null = フィルタなし)
+                            null, // フィルタ用パラメータ
+                            null // ソート (null ソートなし)
+                    );
+
+                    if (mCursor.getCount() > 0) {
+                        moveAndShow(0);
+
+                        next.setEnabled(true);
+                        prev.setEnabled(true);
+                        auto.setEnabled(true);
+                    }
+                } else {
+                    Log.d("ANDROID", "許可されなかった");
+                }
+                break;
+            default:
+                break;
         }
     }
 }
