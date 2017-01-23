@@ -16,47 +16,53 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 public class MainActivity extends AppCompatActivity {
-    // ?
     private static final int PERMISSIONS_REQUEST_CODE = 100;
-    private Cursor mCursor;
-    private Handler mHandler;
-    private Runnable mRunnable = new Runnable() {
-        @Override
+    private static final int PERIOD = 2000;
+    private final Handler handler = new Handler();
+    private final Runnable runnable = new Runnable() {
         public void run() {
             moveAndShow(1);
-            mHandler.postDelayed(mRunnable, period);
         }
     };
-    private static final int period = 2000;
-    private Button next;
-    private Button prev;
-    private Button auto;
+    private Cursor mCursor;
+    private Timer mTimer;
+    private Button nextButton;
+    private Button prevButton;
+    private Button autoButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        next = (Button) findViewById(R.id.button);
-        prev = (Button) findViewById(R.id.button2);
-        auto = (Button) findViewById(R.id.button3);
+        nextButton = (Button) findViewById(R.id.button);
+        prevButton = (Button) findViewById(R.id.button2);
+        autoButton = (Button) findViewById(R.id.button3);
 
-        next.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { moveAndShow(1); } });
-        prev.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { moveAndShow(-1); } });
-        auto.setOnClickListener(new View.OnClickListener() {
+        nextButton.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { moveAndShow(1); } });
+        prevButton.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { moveAndShow(-1); } });
+        autoButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                if (mHandler == null) {
-                    mHandler = new Handler();
-                    mHandler.postDelayed(mRunnable, period);
+                if (mTimer == null) {
+                    mTimer = new Timer();
+                    mTimer.schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            handler.post(runnable);
+                        }
+                    }, 0, PERIOD);
                     Log.d("Slideshow", "started");
-                    findViewById(R.id.button).setEnabled(false);
-                    findViewById(R.id.button2).setEnabled(false);
+                    nextButton.setEnabled(false);
+                    prevButton.setEnabled(false);
                 } else {
-                    mHandler.removeCallbacks(mRunnable);
-                    mHandler = null;
+                    mTimer.cancel();
+                    mTimer = null;
                     Log.d("Slideshow", "stopped");
-                    findViewById(R.id.button).setEnabled(true);
-                    findViewById(R.id.button2).setEnabled(true);
+                    nextButton.setEnabled(true);
+                    prevButton.setEnabled(true);
                 }
             }
         });
@@ -69,30 +75,14 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
         }
-
-        ContentResolver resolver = getContentResolver();
-        mCursor = resolver.query(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, // データの種類
-                null, // 項目(null = 全項目)
-                null, // フィルタ条件(null = フィルタなし)
-                null, // フィルタ用パラメータ
-                null // ソート (null ソートなし)
-        );
-
-        if (mCursor.getCount() > 0) {
-            moveAndShow(0);
-
-            next.setEnabled(true);
-            prev.setEnabled(true);
-            auto.setEnabled(true);
-        }
+        initializeCursorAndView();
     }
 
     @Override
     protected void onDestroy() {
-        if (mHandler != null) {
-            mHandler.removeCallbacks(mRunnable);
-            mHandler = null;
+        if (mTimer != null) {
+            mTimer.cancel();
+            mTimer = null;
         }
         if (mCursor != null) {
             mCursor.close();
@@ -124,29 +114,36 @@ public class MainActivity extends AppCompatActivity {
         switch (requestCode) {
             case PERMISSIONS_REQUEST_CODE:
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Log.d("ANDROID", "許可された");
-                    ContentResolver resolver = getContentResolver();
-                    mCursor = resolver.query(
-                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, // データの種類
-                            null, // 項目(null = 全項目)
-                            null, // フィルタ条件(null = フィルタなし)
-                            null, // フィルタ用パラメータ
-                            null // ソート (null ソートなし)
-                    );
-
-                    if (mCursor.getCount() > 0) {
-                        moveAndShow(0);
-
-                        next.setEnabled(true);
-                        prev.setEnabled(true);
-                        auto.setEnabled(true);
-                    }
+                    Log.d("Slideshow", "許可された");
+                    initializeCursorAndView();
                 } else {
-                    Log.d("ANDROID", "許可されなかった");
+                    Log.d("Slideshow", "許可されなかった");
                 }
                 break;
             default:
                 break;
+        }
+    }
+
+    private void initializeCursorAndView() {
+        mCursor = getContentResolver().query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, // データの種類
+                null, // 項目(null = 全項目)
+                null, // フィルタ条件(null = フィルタなし)
+                null, // フィルタ用パラメータ
+                null // ソート (null ソートなし)
+        );
+
+        if (mCursor == null) {
+            Log.d("Slideshow", "getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,null,null,null,null) returned null");
+        } else {
+            if (mCursor.getCount() > 0) {
+                moveAndShow(0);
+
+                nextButton.setEnabled(true);
+                prevButton.setEnabled(true);
+                autoButton.setEnabled(true);
+            }
         }
     }
 }
