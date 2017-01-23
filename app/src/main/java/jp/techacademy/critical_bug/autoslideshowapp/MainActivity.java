@@ -10,6 +10,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.MediaStore;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -57,12 +58,14 @@ public class MainActivity extends AppCompatActivity {
                     Log.d("Slideshow", "started");
                     nextButton.setEnabled(false);
                     prevButton.setEnabled(false);
+                    autoButton.setText("停止");
                 } else {
                     mTimer.cancel();
                     mTimer = null;
                     Log.d("Slideshow", "stopped");
                     nextButton.setEnabled(true);
                     prevButton.setEnabled(true);
+                    autoButton.setText("再生");
                 }
             }
         });
@@ -110,7 +113,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         switch (requestCode) {
             case PERMISSIONS_REQUEST_CODE:
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {

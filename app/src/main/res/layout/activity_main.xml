@@ -35,7 +35,7 @@
         android:enabled="false" />
 
     <Button
-        android:text="自動"
+        android:text="再生"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignTop="@+id/button2"
